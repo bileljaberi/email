@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\Traits\CommonDate;
 use ApiPlatform\Metadata\ApiResource;
 use App\Repository\UserRepository;
 use ApiPlatform\Metadata\Delete;
@@ -12,6 +13,7 @@ use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Patch;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use App\State\UserPasswordHasher;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Annotation\Groups;
@@ -19,39 +21,30 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ApiResource()]
-#[Get(
-    normalizationContext:['groups'=>['read']],
-    uriTemplate:'users/afficher_user/{id}',
-    )]
-#[Post(
-    denormalizationContext:['groups'=>['write']],
-    normalizationContext:['groups'=>['read']],
-    uriTemplate:'users/ajout_user/{id}',
-    )]
-#[GetCollection(
-    normalizationContext:['groups'=>['read']],
-    uriTemplate:'users/afficher_tous',
-    )]
-#[Delete(
-    uriTemplate:'users/effacer_user/{id}',
 
-)]
-#[Put(
-    uriTemplate:'users/modifier_user/{id}',
-
-)]
-#[Patch(
-    name:'change_password',
-    uriTemplate:'users/change_password/{id}',
-    denormalizationContext:['groups'=>['change_password']],
-    normalizationContext:['groups'=>['change_password']],
-
+#[ApiResource(
+    operations: [
+        new GetCollection(),
+        new Post(processor: UserPasswordHasher::class),
+        new Get(),
+        new Put(processor: UserPasswordHasher::class),
+        new Patch(processor: UserPasswordHasher::class,
+        name:'change_password',
+        uriTemplate:'users/change_password/{id}',
+        denormalizationContext:['groups'=>['change_password']],
+        normalizationContext:['groups'=>['change_password']]),
+        new Delete(),
+    ],
+    normalizationContext: ['groups' => ['read']],
+    denormalizationContext: ['groups' => ['write']],
 )]
 
+#[ORM\HasLifecycleCallbacks]
 
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    use CommonDate;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -77,6 +70,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @var string The hashed password
      */
     #[ORM\Column]
+    
+    
+    private ?string $password = null;
+
+   
+    #[groups(['change_password','write'])]
     #[Assert\NotBlank]
     #[Assert\Length(
         min:4,
@@ -85,9 +84,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         maxMessage:'le password doit etre moin que {{ limit }} caractéres'
 
     )]
-    #[groups(['change_password'])]
-
-    private ?string $password = null;
+    private ?string $plainPassword = null;
     
 
     public function getId(): ?int
@@ -151,6 +148,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    public function getPlainPassword(): ?string
+    {
+        return $this->plainPassword;
+    }
+    public function setPlainPassword(?string $plainPassword): self
+    {
+        $this->plainPassword = $plainPassword;
+        return $this;
+    }
+
     /**
      * @see UserInterface
      */
@@ -158,10 +165,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
+        $this->plainPassword = null;
     }
 
+    #[ORM\PrePersist]
+    #[ORM\PreUpdate]
+
+   public function updatedAt()
+   {
+    if ($this->getCreatedAt() == null)
+     {
+            $this->setCreatedAt( new \DateTimeImmutable());
+     }
+        $this->setUpdatedAt( new \DateTimeImmutable());
     
-   
+
+   }
     
 
   
