@@ -23,22 +23,20 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 
 #[ApiResource(
-    operations: [
-        new GetCollection(),
-        new Post(processor: UserPasswordHasher::class),
-        new Get(),
-        new Put(processor: UserPasswordHasher::class),
-        new Patch(processor: UserPasswordHasher::class,
-        name:'change_password',
-        uriTemplate:'users/change_password/{id}',
-        denormalizationContext:['groups'=>['change_password']],
-        normalizationContext:['groups'=>['change_password']]),
-        new Delete(),
-    ],
     normalizationContext: ['groups' => ['read']],
     denormalizationContext: ['groups' => ['write']],
 )]
-
+#[Post(processor: UserPasswordHasher::class)]
+#[Put(processor: UserPasswordHasher::class)]
+#[Patch(processor: UserPasswordHasher::class,
+    name:'change_password',
+    uriTemplate:'users/change_password/{id}',
+    denormalizationContext:['groups'=>['change_password']],
+    normalizationContext:['groups'=>['change_password']],
+)]
+#[Get()]
+#[GetCollection()]
+#[Delete()]
 #[ORM\HasLifecycleCallbacks]
 
 class User implements UserInterface, PasswordAuthenticatedUserInterface
@@ -168,19 +166,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->plainPassword = null;
     }
 
-    #[ORM\PrePersist]
-    #[ORM\PreUpdate]
-
-   public function updatedAt()
-   {
-    if ($this->getCreatedAt() == null)
-     {
-            $this->setCreatedAt( new \DateTimeImmutable());
-     }
-        $this->setUpdatedAt( new \DateTimeImmutable());
-    
-
-   }
+   
     
 
   
